@@ -80,7 +80,7 @@ export const login = async (req, res, next) => {
     res
       .cookie("access_token", token, cookieOptions)
       .status(200)
-      .json({ details: { ...otherDetails }, isAdmin });
+      .json({ details: { ...otherDetails }, isAdmin, token });
   } catch (err) {
     next(err);
   }

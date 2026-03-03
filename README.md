@@ -12,6 +12,7 @@
 ## ✨ Highlights
 
 - 🔐 JWT authentication with HTTP-only cookie sessions
+- 🛡️ Session hardening with dual auth transport (cookie or bearer token)
 - 👥 Role-aware route protection (user/admin)
 - 🙍 User account center endpoints (`/users/me`, profile update, password change)
 - 🏙️ Hotels API with city/type/price filters
@@ -88,6 +89,11 @@ When you run `npm run seed`, it:
 - `POST /auth/login`
 - `POST /auth/logout`
 
+`POST /auth/login` response includes:
+- `details`: user profile object (without password)
+- `isAdmin`: role flag
+- `token`: JWT token for bearer-based auth fallback
+
 ### Hotels
 - `GET /hotels`
 - `GET /hotels/find/:id`
@@ -122,6 +128,15 @@ When you run `npm run seed`, it:
 3. Controller validates payload + auth context
 4. Mongoose reads/writes MongoDB
 5. Error middleware returns consistent JSON format
+
+## 🔐 Authentication Transport
+
+Protected routes accept JWT from either source:
+
+- `access_token` HTTP-only cookie (primary)
+- `Authorization: Bearer <token>` header (fallback)
+
+This prevents production auth failures when browser or hosting cookie behavior changes for cross-origin requests.
 
 ## 🛡️ Booking Integrity
 
@@ -176,6 +191,7 @@ curl "http://localhost:5000/api/hotels/countByCity?cities=Goa,Mumbai,Manali"
 - **Port conflict**: change `PORT` in `.env`
 - **CORS blocked**: ensure `CLIENT_URL` matches frontend origin
 - **Auth cookie missing**: confirm frontend sends credentials
+- **Intermittent 401 in production**: verify frontend is sending `Authorization: Bearer ...` and backend `JWT` secret is unchanged
 - **Mongo errors**: verify `MONGO` URI + IP access rules
 
 ## 🚢 Deployment Notes

@@ -2,7 +2,14 @@ import jwt from "jsonwebtoken";
 import { createError } from "../utils/error.js";
 
 export const verifyToken = (req, res, next) => {
-  const token = req.cookies.access_token;
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  const bearerToken =
+    typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
+
+  const token = req.cookies.access_token || bearerToken;
+
   if (!token) {
     return next(createError(401, "You are not authenticated!"));
   }
