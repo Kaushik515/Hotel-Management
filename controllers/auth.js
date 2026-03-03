@@ -54,9 +54,13 @@ export const login = async (req, res, next) => {
     if (!isPasswordCorrect)
       return next(createError(401, "Invalid username or password!"));
 
+    const sessionDays = Math.max(Number(process.env.SESSION_DAYS) || 7, 1);
+    const sessionMs = sessionDays * 24 * 60 * 60 * 1000;
+
     const token = jwt.sign(
       { id: user._id, isAdmin: user.isAdmin },
-      process.env.JWT
+      process.env.JWT,
+      { expiresIn: `${sessionDays}d` }
     );
 
     const requestOrigin = req.headers.origin || "";
@@ -69,6 +73,7 @@ export const login = async (req, res, next) => {
       sameSite: isLocalClient ? "lax" : "none",
       secure: !isLocalClient,
       path: "/",
+      maxAge: sessionMs,
     };
 
     const { password, isAdmin, ...otherDetails } = user._doc;

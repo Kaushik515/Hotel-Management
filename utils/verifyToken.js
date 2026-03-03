@@ -8,6 +8,9 @@ export const verifyToken = (req, res, next) => {
   }
 
   jwt.verify(token, process.env.JWT, (err, user) => {
+    if (err?.name === "TokenExpiredError") {
+      return next(createError(401, "Session expired. Please login again."));
+    }
     if (err) return next(createError(403, "Token is not valid!"));
     req.user = user;
     next();
