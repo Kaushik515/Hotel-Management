@@ -15,7 +15,15 @@ export const verifyToken = (req, res, next) => {
 };
 
 export const verifyUser = (req, res, next) => {
-  verifyToken(req, res, next, () => {
+  verifyToken(req, res, (err) => {
+    if (err) {
+      return next(err);
+    }
+
+    if (!req.user) {
+      return next(createError(401, "You are not authenticated!"));
+    }
+
     if (req.user.id === req.params.id || req.user.isAdmin) {
       next();
     } else {
@@ -25,7 +33,15 @@ export const verifyUser = (req, res, next) => {
 };
 
 export const verifyAdmin = (req, res, next) => {
-  verifyToken(req, res, next, () => {
+  verifyToken(req, res, (err) => {
+    if (err) {
+      return next(err);
+    }
+
+    if (!req.user) {
+      return next(createError(401, "You are not authenticated!"));
+    }
+
     if (req.user.isAdmin) {
       next();
     } else {

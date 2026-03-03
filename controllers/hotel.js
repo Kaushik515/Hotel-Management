@@ -40,16 +40,21 @@ export const getHotel = async (req, res, next) => {
   }
 };
 export const getHotels = async (req, res, next) => {
-  const { min, max, ...others } = req.query;
+  const { min, max, city, ...others } = req.query;
   try {
-    //console.log(req.query.limit);
-    //const hotels=await Hotel.find({});
+    const minPrice = Number(min) || 1;
+    const maxPrice = Number(max) || 999999;
+
+    const cityFilter = city
+      ? { city: { $regex: new RegExp(`^${city}$`, "i") } }
+      : {};
+
     const hotels = await Hotel.find({
       ...others,
-      cheapestPrice: { $gt: min | 1, $lt: max || 999 },
+      ...cityFilter,
+      cheapestPrice: { $gte: minPrice, $lte: maxPrice },
     });
     res.status(200).json(hotels);
-    //console.log(hotels);
   } catch (err) {
     next(err);
   }
@@ -60,7 +65,9 @@ export const countByCity = async (req, res, next) => {
   try {
     const list = await Promise.all(
       cities.map((city) => {
-        return Hotel.countDocuments({ city: city });
+        return Hotel.countDocuments({
+          city: { $regex: new RegExp(`^${city.trim()}$`, "i") },
+        });
       })
     );
     res.status(200).json(list);
