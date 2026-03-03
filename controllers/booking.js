@@ -151,3 +151,56 @@ export const cancelBooking = async (req, res, next) => {
     next(err);
   }
 };
+
+export const submitBookingReview = async (req, res, next) => {
+  try {
+    const { rating, review } = req.body;
+
+    const parsedRating = Number(rating);
+    if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      return next(createError(400, "Rating must be an integer between 1 and 5."));
+    }
+
+    const booking = await Booking.findById(req.params.bookingId);
+    if (!booking) {
+      return next(createError(404, "Booking not found."));
+    }
+
+    if (booking.userId !== req.user.id && !req.user.isAdmin) {
+      return next(createError(403, "You are not authorized!"));
+    }
+
+    if (booking.status === "cancelled") {
+      return next(createError(400, "Cancelled bookings cannot be reviewed."));
+    }
+
+    const latestDate = booking.dates
+      .map((date) => new Date(date).getTime())
+      .sort((a, b) => a - b)
+      .pop();
+
+    if (!latestDate) {
+      return next(createError(400, "Booking has no valid dates for review."));
+    }
+
+    const todayUtcMidnight = Date.UTC(
+      new Date().getUTCFullYear(),
+      new Date().getUTCMonth(),
+      new Date().getUTCDate()
+    );
+
+    if (latestDate >= todayUtcMidnight) {
+      return next(createError(400, "You can review only after the stay is completed."));
+    }
+
+    booking.rating = parsedRating;
+    booking.review = typeof review === "string" ? review.trim() : "";
+    booking.reviewedAt = new Date();
+
+    await booking.save();
+
+    res.status(200).json(booking);
+  } catch (err) {
+    next(err);
+  }
+};

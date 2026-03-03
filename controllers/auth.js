@@ -60,11 +60,15 @@ export const login = async (req, res, next) => {
     );
 
     const requestOrigin = req.headers.origin || "";
-    const isLocalClient = requestOrigin.includes("localhost");
+    const isLocalClient =
+      process.env.NODE_ENV !== "production" ||
+      requestOrigin.includes("localhost") ||
+      requestOrigin.includes("127.0.0.1");
     const cookieOptions = {
       httpOnly: true,
       sameSite: isLocalClient ? "lax" : "none",
       secure: !isLocalClient,
+      path: "/",
     };
 
     const { password, isAdmin, ...otherDetails } = user._doc;
@@ -79,11 +83,18 @@ export const login = async (req, res, next) => {
 
 export const logout = async (req, res, next) => {
   try {
+    const requestOrigin = req.headers.origin || "";
+    const isLocalClient =
+      process.env.NODE_ENV !== "production" ||
+      requestOrigin.includes("localhost") ||
+      requestOrigin.includes("127.0.0.1");
+
     res
       .clearCookie("access_token", {
         httpOnly: true,
-        sameSite: "lax",
-        secure: false,
+        sameSite: isLocalClient ? "lax" : "none",
+        secure: !isLocalClient,
+        path: "/",
       })
       .status(200)
       .json({ message: "Logged out successfully." });

@@ -4,6 +4,9 @@ import {
   deleteUser,
   getUser,
   getUsers,
+  getMyProfile,
+  updateMyProfile,
+  changeMyPassword,
 } from "../controllers/user.js";
 import { verifyAdmin, verifyToken, verifyUser } from "../utils/verifyToken.js";
 
@@ -20,6 +23,11 @@ const router = express.Router();
 // router.get("/checkadmin/:id", verifyAdmin, (req,res,next)=>{
 //   res.send("hello admin, you are logged in and you can delete all accounts")
 // })
+
+//MY ACCOUNT
+router.get("/me", verifyToken, getMyProfile);
+router.put("/me", verifyToken, updateMyProfile);
+router.put("/me/password", verifyToken, changeMyPassword);
 
 //UPDATE
 router.put("/:id", verifyUser, updateUser);

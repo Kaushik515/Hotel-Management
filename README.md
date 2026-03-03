@@ -13,9 +13,11 @@
 
 - 🔐 JWT authentication with HTTP-only cookie sessions
 - 👥 Role-aware route protection (user/admin)
+- 🙍 User account center endpoints (`/users/me`, profile update, password change)
 - 🏙️ Hotels API with city/type/price filters
 - 🛏️ Room availability checks with date overlap prevention
 - 📦 Booking lifecycle: create, list, cancel
+- ⭐ Booking review API for completed stays (rating + text review)
 - 🌐 CORS + credentials support for frontend integration
 - 🌱 Seed script for realistic demo inventory
 
@@ -50,6 +52,9 @@ MONGO=your_mongodb_connection_string
 JWT=your_jwt_secret
 PORT=5000
 CLIENT_URL=http://localhost:3000
+AI_API_KEY=your_ai_provider_api_key
+AI_MODEL=openai/gpt-4o-mini
+AI_BASE_URL=https://openrouter.ai/api/v1
 ```
 
 ## 🚀 Quick Start
@@ -99,6 +104,16 @@ When you run `npm run seed`, it:
 - `POST /bookings` *(auth required)*
 - `GET /bookings/user/:id` *(owner/admin)*
 - `PUT /bookings/:bookingId/cancel` *(auth required)*
+- `PUT /bookings/:bookingId/review` *(auth required; owner/admin; completed booking)*
+
+### AI
+- `POST /ai/trip-plan` *(AI destination and stay suggestions)*
+- `POST /ai/review-draft` *(auth required; AI-generated review draft text)*
+
+### Users / Account
+- `GET /users/me` *(auth required)*
+- `PUT /users/me` *(auth required)*
+- `PUT /users/me/password` *(auth required)*
 
 ## 🔄 Request Flow
 
@@ -114,6 +129,13 @@ When you run `npm run seed`, it:
 - Availability updates use conflict-aware atomic checks
 - If one room conflicts, related updates are rolled back
 - Overlap conflicts return `409`
+
+## ⭐ Booking Review Rules
+
+- Review is linked to booking (`rating`, `review`, `reviewedAt`)
+- Rating must be integer from `1` to `5`
+- Only booking owner (or admin) can submit/update
+- Active or cancelled bookings cannot be reviewed
 
 ## ❗ Error Response Format
 
