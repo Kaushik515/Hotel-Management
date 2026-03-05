@@ -2,28 +2,45 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import { createError } from "../utils/error.js";
 import jwt from "jsonwebtoken";
-
-const isValidEmail = (email = "") => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
-};
+import {
+  isStrongPassword,
+  PASSWORD_POLICY_MESSAGE,
+} from "../utils/passwordPolicy.js";
+import {
+  isValidEmail,
+  getEmailValidationError,
+} from "../utils/emailValidation.js";
+import {
+  getPhoneValidationError,
+} from "../utils/phoneValidation.js";
 
 export const register = async (req, res, next) => {
   try {
     const normalizedEmail = (req.body.email || "").trim().toLowerCase();
+    const normalizedUsername = (req.body.username || "").trim();
 
-    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
-      return next(createError(400, "Please provide a valid email address."));
+    if (!normalizedUsername) {
+      return next(createError(400, "Username is required."));
     }
 
-    const existingUser = await User.findOne({
-      $or: [{ email: normalizedEmail }, { username: req.body.username }],
-    });
+    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+      const emailError = getEmailValidationError(normalizedEmail);
+      return next(createError(400, emailError || "Please provide a valid email address."));
+    }
+
+    const phoneError = getPhoneValidationError(req.body.phone || "", req.body.country || "");
+    if (phoneError) {
+      return next(createError(400, phoneError));
+    }
+
+    const existingUser = await User.findOne({ username: normalizedUsername });
 
     if (existingUser) {
-      if (existingUser.email === normalizedEmail) {
-        return next(createError(409, "Email is already registered."));
-      }
       return next(createError(409, "Username is already taken."));
+    }
+
+    if (!isStrongPassword(req.body.password || "")) {
+      return next(createError(400, PASSWORD_POLICY_MESSAGE));
     }
 
     const salt = bcrypt.genSaltSync(10);
@@ -31,6 +48,7 @@ export const register = async (req, res, next) => {
 
     const newUser = new User({
       ...req.body,
+      username: normalizedUsername,
       email: normalizedEmail,
       password: hash,
     });
@@ -38,6 +56,29 @@ export const register = async (req, res, next) => {
     await newUser.save();
 
     res.status(200).send("User has been created.");
+  } catch (err) {
+    if (err?.code === 11000 && err?.keyPattern?.username) {
+      return next(createError(409, "Username is already taken."));
+    }
+    next(err);
+  }
+};
+
+export const checkUsernameAvailability = async (req, res, next) => {
+  try {
+    const username = (req.query.username || "").trim();
+
+    if (!username) {
+      return next(createError(400, "Username is required."));
+    }
+
+    const existingUser = await User.findOne({ username }).select("_id");
+    const available = !existingUser;
+
+    return res.status(200).json({
+      available,
+      message: available ? "Username is available." : "Username is already taken.",
+    });
   } catch (err) {
     next(err);
   }
@@ -54,13 +95,14 @@ export const login = async (req, res, next) => {
     if (!isPasswordCorrect)
       return next(createError(401, "Invalid username or password!"));
 
-    const sessionDays = Math.max(Number(process.env.SESSION_DAYS) || 7, 1);
-    const sessionMs = sessionDays * 24 * 60 * 60 * 1000;
+    const sessionHours = Math.max(Number(process.env.SESSION_HOURS) || 1, 1);
+    const sessionSeconds = Math.floor(sessionHours * 60 * 60);
+    const sessionMs = sessionSeconds * 1000;
 
     const token = jwt.sign(
       { id: user._id, isAdmin: user.isAdmin },
       process.env.JWT,
-      { expiresIn: `${sessionDays}d` }
+      { expiresIn: `${sessionSeconds}s` }
     );
 
     const requestOrigin = req.headers.origin || "";

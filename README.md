@@ -12,9 +12,11 @@
 ## ✨ Highlights
 
 - 🔐 JWT authentication with HTTP-only cookie sessions
+- ⏱️ 1-hour session expiry policy with automatic token/cookie timeout
 - 🛡️ Session hardening with dual auth transport (cookie or bearer token)
 - 👥 Role-aware route protection (user/admin)
 - 🙍 User account center endpoints (`/users/me`, profile update, password change)
+- ✅ Centralized input validation for email, phone, and password policy
 - 🏙️ Hotels API with city/type/price filters
 - 🛏️ Room availability checks with date overlap prevention
 - 📦 Booking lifecycle: create, list, cancel
@@ -53,6 +55,7 @@ MONGO=your_mongodb_connection_string
 JWT=your_jwt_secret
 PORT=5000
 CLIENT_URL=http://localhost:3000
+SESSION_HOURS=1
 AI_API_KEY=your_ai_provider_api_key
 AI_MODEL=openai/gpt-4o-mini
 AI_BASE_URL=https://openrouter.ai/api/v1
@@ -88,6 +91,7 @@ When you run `npm run seed`, it:
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/logout`
+- `GET /auth/check-username?username=<value>`
 
 `POST /auth/login` response includes:
 - `details`: user profile object (without password)
@@ -121,6 +125,12 @@ When you run `npm run seed`, it:
 - `PUT /users/me` *(auth required)*
 - `PUT /users/me/password` *(auth required)*
 
+Validation applied on register/profile/password endpoints:
+- Email is normalized to lowercase and validated as `name@domain.tld`
+- Phone is validated as digits-only local number against selected country length rules
+- Password must satisfy strong policy (8+ chars, upper, lower, number, special)
+- Username uniqueness is enforced (email is not uniqueness-gated)
+
 ## 🔄 Request Flow
 
 1. Client calls `/api/...`
@@ -138,6 +148,12 @@ Protected routes accept JWT from either source:
 
 This prevents production auth failures when browser or hosting cookie behavior changes for cross-origin requests.
 
+Session lifetime:
+
+- Login issues JWT + `access_token` cookie with a 1-hour expiry by default
+- Session duration can be configured using `SESSION_HOURS`
+- After expiry, protected routes return `401` and require fresh login
+
 ## 🛡️ Booking Integrity
 
 - Dates are normalized to UTC-midnight
@@ -151,6 +167,13 @@ This prevents production auth failures when browser or hosting cookie behavior c
 - Rating must be integer from `1` to `5`
 - Only booking owner (or admin) can submit/update
 - Active or cancelled bookings cannot be reviewed
+
+## 🧪 Input Validation Rules
+
+- Shared backend validators live in `utils/emailValidation.js`, `utils/phoneValidation.js`, and `utils/passwordPolicy.js`
+- Phone input must contain digits only; country code is inferred from selected country metadata
+- Invalid email/phone/password payloads return `400` with field-specific error messages
+- Duplicate username conflicts return `409`
 
 ## ❗ Error Response Format
 

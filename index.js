@@ -7,6 +7,7 @@ import hotelsRoute from "./routes/hotels.js";
 import roomsRoute from "./routes/rooms.js";
 import bookingsRoute from "./routes/bookings.js";
 import aiRoute from "./routes/ai.js";
+import User from "./models/User.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 
@@ -23,6 +24,7 @@ const allowedOrigins = [
 const connect = async () => {
   try {
     await mongoose.connect(process.env.MONGO);
+    await User.syncIndexes();
     console.log("Connected to MongoDB.");
   } catch (error) {
     throw error;

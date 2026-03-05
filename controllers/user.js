@@ -1,10 +1,17 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import { createError } from "../utils/error.js";
-
-const isValidEmail = (email = "") => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim().toLowerCase());
-};
+import {
+  isStrongPassword,
+  PASSWORD_POLICY_MESSAGE,
+} from "../utils/passwordPolicy.js";
+import {
+  isValidEmail,
+  getEmailValidationError,
+} from "../utils/emailValidation.js";
+import {
+  getPhoneValidationError,
+} from "../utils/phoneValidation.js";
 
 const sanitizeUser = (userDoc) => {
   const { password, ...safeUser } = userDoc;
@@ -74,7 +81,8 @@ export const updateMyProfile = async (req, res, next) => {
     if (typeof updates.email === "string") {
       updates.email = updates.email.trim().toLowerCase();
       if (!isValidEmail(updates.email)) {
-        return next(createError(400, "Please provide a valid email address."));
+        const emailError = getEmailValidationError(updates.email);
+        return next(createError(400, emailError || "Please provide a valid email address."));
       }
     }
 
@@ -95,35 +103,24 @@ export const updateMyProfile = async (req, res, next) => {
 
     if (typeof updates.phone === "string") {
       updates.phone = updates.phone.trim();
-    }
-
-    const conflictChecks = [];
-
-    if (updates.email) {
-      conflictChecks.push(
-        User.findOne({ email: updates.email, _id: { $ne: req.user.id } })
-      );
+      if (updates.phone) {
+        // Get current user to check country if not being updated
+        const currentUser = await User.findById(req.user.id);
+        const countryForPhoneValidation = updates.country || currentUser.country;
+        const phoneError = getPhoneValidationError(updates.phone, countryForPhoneValidation);
+        if (phoneError) {
+          return next(createError(400, phoneError));
+        }
+      }
     }
 
     if (updates.username) {
-      conflictChecks.push(
-        User.findOne({ username: updates.username, _id: { $ne: req.user.id } })
-      );
-    }
+      const existingUsername = await User.findOne({
+        username: updates.username,
+        _id: { $ne: req.user.id },
+      });
 
-    if (conflictChecks.length) {
-      const conflictResults = await Promise.all(conflictChecks);
-      const hasEmailConflict = updates.email
-        ? conflictResults.some((result) => result && result.email === updates.email)
-        : false;
-      const hasUsernameConflict = updates.username
-        ? conflictResults.some((result) => result && result.username === updates.username)
-        : false;
-
-      if (hasEmailConflict) {
-        return next(createError(409, "Email is already registered."));
-      }
-      if (hasUsernameConflict) {
+      if (existingUsername) {
         return next(createError(409, "Username is already taken."));
       }
     }
@@ -152,8 +149,8 @@ export const changeMyPassword = async (req, res, next) => {
       return next(createError(400, "Current and new password are required."));
     }
 
-    if (newPassword.length < 6) {
-      return next(createError(400, "New password must be at least 6 characters long."));
+    if (!isStrongPassword(newPassword)) {
+      return next(createError(400, PASSWORD_POLICY_MESSAGE));
     }
 
     const user = await User.findById(req.user.id);
